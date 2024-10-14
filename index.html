@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI PDF Summarizer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center; 
+      padding: 20px;
+      background-image: url(""); /* เปลี่ยน path  */
+      background-size: cover; 
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      display: flex;
+      justify-content: center;
+      width: 100%; 
+    }
+
+    textarea {
+      width: 80%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0069d9;
+    }
+
+    input[type="text"] {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      width: 50%;
+      text-align: center;
+    }
+
+    #resultText {
+      width: 80%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+
+    .file-upload {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .file-upload input[type="file"] {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>AI PDF Summarizer</h1>
+
+  <div class="file-upload"> 
+    <input type="file" id="pdfFile" accept=".pdf">
+    <button onclick="extractText()">แปลงไฟล์</button>
+  </div>
+
+  <h2>ข้อความจาก PDF</h2>
+  <textarea id="pdfText" rows="10" cols="50"></textarea>
+
+  <h2>ผลลัพธ์</h2>
+  <div id="resultText" contenteditable="true"></div>
+
+  
+  <button onclick="translateText()">แปลภาษา</button>
+  <select id="languageSelect">
+    <option value="fr">French</option>
+    <option value="de">German</option>
+    <option value="ro">Romanian</option>
+    <option value="th">Thai</option>
+</select>
+
+  <input type="text" id="searchWord" placeholder="ใส่คำที่ต้องการค้นหา">
+  <button onclick="searchAndHighlight()">ค้นหาคำ</button>
+
+  <button onclick="downloadText()">ดาวน์โหลด Text</button>
+  <button onclick="downloadPDF()">ดาวน์โหลด PDF</button>
+
+  <script>
+    function extractText() {
+      const fileInput = document.getElementById('pdfFile');
+      const file = fileInput.files[0];
+  
+      const formData = new FormData();
+      formData.append('file', file);
+  
+      fetch('http://localhost:5000/extract_text', {
+          method: 'POST',
+          body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+          document.getElementById('pdfText').value = data.text; // Ensure this is the correct property
+      })
+      .catch(error => console.error('Error:', error));
+      
+  }
+
+  function translateText() {
+    const text = document.getElementById('pdfText').value;
+    const selectedLanguage = document.getElementById('languageSelect').value; // Get the selected language
+
+    fetch('/translate', { 
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ text: text, target_language: selectedLanguage }) // Include selected language
+    })
+    .then(response => response.json())
+    .then(data => {
+      translatedText = data.translated_text;
+      document.getElementById('resultText').innerText = data.translated_text;
+    })
+    .catch(error => console.error('Error:', error));
+}
+    
+  function searchAndHighlight() {
+    const resultText = document.getElementById('resultText').innerText; 
+    const searchWord = document.getElementById('searchWord').value;
+
+    
+    if (searchWord) {
+        const regex = new RegExp(`(${searchWord})`, 'gi'); 
+        const highlightedText = resultText.replace(regex, '<span style="background-color: yellow;">$1</span>'); 
+        document.getElementById('resultText').innerHTML = highlightedText; 
+    }
+}
+
+    let translatedText = '';
+    function downloadText() {
+      const Text = translatedText || document.getElementById('pdfText').value;
+      const blob = new Blob([Text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      //const text = document.getElementById('resultText').value;
+      //const blob = new Blob([text], { type: 'text/plain' });
+      //const url = URL.createObjectURL(blob);
+      //const link = document.createElement('a');
+      link.href = url;
+      link.download = 'summary.txt';
+      link.click();
+    }
+
+    function downloadPDF() {
+      const text = translatedText || document.getElementById('pdfText').value;
+
+      fetch('/download_pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: text })
+      })
+      .then(response => response.blob())
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'summary.pdf';
+        link.click();
+      })
+      .catch(error => console.error('Error:', error));
+    }
+  </script>
+</body>
+</html>
